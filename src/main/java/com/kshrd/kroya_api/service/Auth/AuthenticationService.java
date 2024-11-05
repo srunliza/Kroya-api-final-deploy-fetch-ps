@@ -300,21 +300,27 @@ public class AuthenticationService {
 
     public BaseResponse<?> validateOtp(String email, String otp) {
 
+        validation.ValidationEmail(email);
+
         // Validate email and OTP inputs
+        log.info("Starting OTP validation for email: {}", email);
         if (email == null || email.isEmpty()) {
+            log.warn("Email is empty or null for OTP validation.");
             throw new IllegalArgumentException("Email must not be empty.");
         }
         if (otp == null || otp.isEmpty()) {
+            log.warn("OTP is empty or null for OTP validation.");
             throw new IllegalArgumentException("OTP must not be empty.");
         }
 
         if (!otp.matches("^[0-9]{6}$")) {
+            log.warn("Invalid OTP format provided: {}", otp);
             throw new BadRequestException("Invalid OTP format [6 digits only].", new BadCredentialsException("Invalid OTP"));
         }
 
         // Find the OTP code by email
         var codeEntity = codeRepository.findByEmail(email);
-        log.info("codeEntity: {}", codeEntity);
+        log.info("Fetched OTP entity for email: {}", email);
         if (codeEntity == null) {
             log.warn("OTP not found for email: {}", email);
             throw new NotFoundExceptionHandler("OTP not found for the provided email.");
@@ -322,22 +328,26 @@ public class AuthenticationService {
 
         // Check if the OTP matches
         if (!codeEntity.getPinCode().equals(otp)) {
-            log.warn("Invalid OTP for email: {}", email);
+            log.warn("Invalid OTP provided for email: {}. Expected: {}, Provided: {}", email, codeEntity.getPinCode(), otp);
             throw new BadRequestException("Invalid OTP provided.", new BadCredentialsException("Invalid OTP"));
         }
 
         // Check if the OTP has expired
         if (LocalDateTime.now().isAfter(codeEntity.getExpireDate())) {
-            log.warn("OTP expired for email: {}", email);
+            log.warn("OTP expired for email: {}. Expiry time: {}", email, codeEntity.getExpireDate());
             throw new BadRequestException("OTP has expired.", new BadCredentialsException("OTP has expired"));
         }
 
-        // OTP is valid, proceed to create the user
-        UserEntity userEntity = userRepository.findByEmail(email);
-
-        if (userEntity == null) {
+        // Check if user already exists with the provided email
+        UserEntity existingUser = userRepository.findByEmail(email);
+        if (existingUser != null) {
+            // If user exists, just update the email verified status
+            existingUser.setEmailVerified(true);
+            existingUser.setEmailVerifiedAt(LocalDateTime.now());
+            userRepository.save(existingUser);
+            log.info("Existing user email verified for email: {}", email);
+        } else {
             // If user does not exist, create a new user
-            log.info("Creating a new user for email: {}", email);
             UserEntity newUser = new UserEntity();
             newUser.setEmail(email);
             newUser.setPassword(passwordEncoder.encode("default_password"));
@@ -350,24 +360,16 @@ public class AuthenticationService {
             newUser.setRole("ROLE_USER");
 
             userRepository.save(newUser);
-
             log.info("New user created and email verified for email: {}", email);
-        } else {
-            // If user already exists, just update the email verified status
-            userEntity.setEmailVerified(true);
-            userEntity.setEmailVerifiedAt(LocalDateTime.now());
-            userRepository.save(userEntity);
-
-            log.info("Existing user email verified for email: {}", email);
         }
-
-        log.info("OTP validated and email verified for email: {}", email);
 
         // Prepare success payload
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("email", userEntity.getEmail());
-        payload.put("isEmailVerified", userEntity.isEmailVerified());
-        payload.put("verifiedAt", userEntity.getEmailVerifiedAt());
+        payload.put("email", email);
+        payload.put("isEmailVerified", true);
+        payload.put("verifiedAt", LocalDateTime.now());
+
+        log.info("OTP validated and email verification completed for email: {}", email);
 
         return BaseResponse.builder()
                 .message("OTP validated and email verified successfully")
