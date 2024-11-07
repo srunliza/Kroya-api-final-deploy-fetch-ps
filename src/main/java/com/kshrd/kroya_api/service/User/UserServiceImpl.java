@@ -347,14 +347,14 @@ public class UserServiceImpl implements UserService {
         }
 
         // Validate and update password if present and valid
-//        String rawPassword = null;
-        if (profileUpdateRequest.getPassword() != null && !profileUpdateRequest.getPassword().trim().isEmpty()) {
-            if (profileUpdateRequest.getPassword().length() < 8) {
-                throw new FieldBlankExceptionHandler("Password must be more than 8 characters.");
-            }
-//            rawPassword = profileUpdateRequest.getPassword(); // Save raw password to show in response
-            currentUser.setPassword(passwordEncoder.encode(profileUpdateRequest.getPassword()));
-        }
+////        String rawPassword = null;
+//        if (profileUpdateRequest.getPassword() != null && !profileUpdateRequest.getPassword().trim().isEmpty()) {
+//            if (profileUpdateRequest.getPassword().length() < 8) {
+//                throw new FieldBlankExceptionHandler("Password must be more than 8 characters.");
+//            }
+////            rawPassword = profileUpdateRequest.getPassword(); // Save raw password to show in response
+//            currentUser.setPassword(passwordEncoder.encode(profileUpdateRequest.getPassword()));
+//        }
 
         // Validate and update full name if present
         if (profileUpdateRequest.getFullName() != null && !profileUpdateRequest.getFullName().trim().isEmpty()) {
@@ -558,12 +558,12 @@ public class UserServiceImpl implements UserService {
 
         UserEntity user = userRepository.getById(userId);
 
-        UserResponse userResponse = modelMapper.map(user, UserResponse.class);
+//        UserResponse userResponse = modelMapper.map(user, UserResponse.class);
 
         return BaseResponse.builder()
                 .message("User info fetched successfully")
                 .statusCode(String.valueOf(HttpStatus.OK.value()))
-                .payload(userResponse)
+                .payload(auth)
                 .build();
     }
 }
