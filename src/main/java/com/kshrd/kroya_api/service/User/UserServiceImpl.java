@@ -2,6 +2,7 @@ package com.kshrd.kroya_api.service.User;
 
 import com.kshrd.kroya_api.dto.PhotoDTO;
 import com.kshrd.kroya_api.dto.UserDTO;
+import com.kshrd.kroya_api.dto.UserEntityDTO;
 import com.kshrd.kroya_api.dto.UserProfileDTO;
 import com.kshrd.kroya_api.entity.*;
 import com.kshrd.kroya_api.entity.token.TokenRepository;
@@ -346,10 +347,12 @@ public class UserServiceImpl implements UserService {
         }
 
         // Validate and update password if present and valid
+//        String rawPassword = null;
         if (profileUpdateRequest.getPassword() != null && !profileUpdateRequest.getPassword().trim().isEmpty()) {
             if (profileUpdateRequest.getPassword().length() < 8) {
                 throw new FieldBlankExceptionHandler("Password must be more than 8 characters.");
             }
+//            rawPassword = profileUpdateRequest.getPassword(); // Save raw password to show in response
             currentUser.setPassword(passwordEncoder.encode(profileUpdateRequest.getPassword()));
         }
 
@@ -377,17 +380,17 @@ public class UserServiceImpl implements UserService {
         userRepository.save(currentUser);
         log.info("Profile updated successfully for user: {}", currentUser.getEmail());
 
-        // Map profile update request to response DTO
-        UserProfileDTO userProfileDTO = new UserProfileDTO();
-        userProfileDTO.setUserId(Long.valueOf(currentUser.getId()));
-        modelMapper.map(profileUpdateRequest, userProfileDTO);
+        // Use ModelMapper to map the current user to UserEntityDTO
+//        UserEntityDTO userEntityDTO = modelMapper.map(currentUser, UserEntityDTO.class);
+//        userEntityDTO.setPassword(rawPassword); // Set the raw password from the request
 
         return BaseResponse.builder()
-                .payload(userProfileDTO)
+                .payload(currentUser)
                 .message("Profile updated successfully")
                 .statusCode(String.valueOf(HttpStatus.OK.value()))
                 .build();
     }
+
 
     @Override
     @Transactional
