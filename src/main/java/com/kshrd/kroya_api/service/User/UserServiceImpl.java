@@ -339,36 +339,36 @@ public class UserServiceImpl implements UserService {
         UserEntity currentUser = (UserEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         log.info("Updating profile for user: {}", currentUser.getEmail());
 
-        // Validate and update profile image
-        if (profileUpdateRequest.getProfileImage() != null) {
+        // Validate and update profile image if present
+        if (profileUpdateRequest.getProfileImage() != null && !profileUpdateRequest.getProfileImage().trim().isEmpty()) {
             validation.validateNotBlank(profileUpdateRequest.getProfileImage(), "Profile Image");
             currentUser.setProfileImage(profileUpdateRequest.getProfileImage());
         }
 
-        // Ensure password has more than 8 characters
-        if (profileUpdateRequest.getPassword().length() < 8) {
-            throw new FieldBlankExceptionHandler("Password must be more than 8 characters.");
+        // Validate and update password if present and valid
+        if (profileUpdateRequest.getPassword() != null && !profileUpdateRequest.getPassword().trim().isEmpty()) {
+            if (profileUpdateRequest.getPassword().length() < 8) {
+                throw new FieldBlankExceptionHandler("Password must be more than 8 characters.");
+            }
+            currentUser.setPassword(passwordEncoder.encode(profileUpdateRequest.getPassword()));
         }
-        // Update the user's password
-        currentUser.setPassword(passwordEncoder.encode(profileUpdateRequest.getPassword()));
 
-
-        // Validate and update full name
-        if (profileUpdateRequest.getFullName() != null) {
+        // Validate and update full name if present
+        if (profileUpdateRequest.getFullName() != null && !profileUpdateRequest.getFullName().trim().isEmpty()) {
             validation.validateNotBlank(profileUpdateRequest.getFullName(), "Full Name");
             validation.validateUserName(profileUpdateRequest.getFullName());
             currentUser.setFullName(profileUpdateRequest.getFullName());
         }
 
-        // Validate and update phone number
-        if (profileUpdateRequest.getPhoneNumber() != null) {
+        // Validate and update phone number if present
+        if (profileUpdateRequest.getPhoneNumber() != null && !profileUpdateRequest.getPhoneNumber().trim().isEmpty()) {
             validation.validateNotBlank(profileUpdateRequest.getPhoneNumber(), "Phone Number");
             validation.validatePhoneNumber(profileUpdateRequest.getPhoneNumber());
             currentUser.setPhoneNumber(profileUpdateRequest.getPhoneNumber());
         }
 
-        // Validate and update location
-        if (profileUpdateRequest.getLocation() != null) {
+        // Validate and update location if present
+        if (profileUpdateRequest.getLocation() != null && !profileUpdateRequest.getLocation().trim().isEmpty()) {
             validation.validateNotBlank(profileUpdateRequest.getLocation(), "Location");
             currentUser.setLocation(profileUpdateRequest.getLocation());
         }
@@ -376,6 +376,8 @@ public class UserServiceImpl implements UserService {
         // Save the updated user details
         userRepository.save(currentUser);
         log.info("Profile updated successfully for user: {}", currentUser.getEmail());
+
+        // Map profile update request to response DTO
         UserProfileDTO userProfileDTO = new UserProfileDTO();
         userProfileDTO.setUserId(Long.valueOf(currentUser.getId()));
         modelMapper.map(profileUpdateRequest, userProfileDTO);
