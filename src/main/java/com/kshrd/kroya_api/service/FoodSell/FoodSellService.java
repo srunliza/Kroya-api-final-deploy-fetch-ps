@@ -12,4 +12,6 @@ public interface FoodSellService {
     BaseResponse<?> editFoodSell(Long foodSellId, FoodSellRequest foodSellRequest);
 
     BaseResponse<?> getFoodSellByCuisineID(Long cuisineId);
+
+    BaseResponse<?> searchFoodsByName(String name);
 }

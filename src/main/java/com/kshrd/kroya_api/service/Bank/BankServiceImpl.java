@@ -4,6 +4,10 @@ import com.kshrd.kroya_api.dto.UserDTO;
 import com.kshrd.kroya_api.entity.BankEntity;
 import com.kshrd.kroya_api.entity.UserEntity;
 import com.kshrd.kroya_api.enums.CurrencyType;
+import com.kshrd.kroya_api.exception.DuplicateFieldExceptionHandler;
+import com.kshrd.kroya_api.exception.NotFoundExceptionHandler;
+import com.kshrd.kroya_api.exception.constand.FieldBlankExceptionHandler;
+import com.kshrd.kroya_api.exception.constand.UnauthorizedException;
 import com.kshrd.kroya_api.payload.Bank.BankRequest;
 import com.kshrd.kroya_api.payload.BaseResponse;
 import com.kshrd.kroya_api.repository.Bank.BankRepository;
@@ -31,15 +35,11 @@ public class BankServiceImpl implements BankService {
         // Get the currently authenticated user
         UserEntity currentUser = (UserEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Integer userId = currentUser.getId();
-        log.info("User authenticated: {}", currentUser.getEmail());
 
         // Check if the user already has a bank account (optional validation)
         Optional<BankEntity> existingBank = bankRepository.findByUserId(userId);
         if (existingBank.isPresent()) {
-            return BaseResponse.builder()
-                    .message("User already has a bank account")
-                    .statusCode(String.valueOf(HttpStatus.CONFLICT.value()))
-                    .build();
+            throw new DuplicateFieldExceptionHandler("User already has a bank account");
         }
 
         // Map BankRequest to BankEntity and set user
@@ -67,6 +67,10 @@ public class BankServiceImpl implements BankService {
     // Update an existing bank account
     @Override
     public BaseResponse<?> updateBank(Long bankId, BankRequest bankRequest, CurrencyType currencyType) {
+        // Validate bankId to ensure it’s not null and is positive
+        if (bankId == null || bankId <= 0) {
+            throw new FieldBlankExceptionHandler("Bank ID must be a positive number and cannot be null.");
+        }
 
         // Get the currently authenticated user
         UserEntity currentUser = (UserEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -75,20 +79,15 @@ public class BankServiceImpl implements BankService {
         // Fetch the bank entity by ID
         Optional<BankEntity> bankEntityOptional = bankRepository.findById(bankId);
         if (bankEntityOptional.isEmpty()) {
-            return BaseResponse.builder()
-                    .message("Bank account not found")
-                    .statusCode(String.valueOf(HttpStatus.NOT_FOUND.value()))
-                    .build();
+            throw new NotFoundExceptionHandler("Bank account not found");
         }
 
         BankEntity bankEntity = bankEntityOptional.get();
 
         // Check if the bank account belongs to the current user
         if (!bankEntity.getUser().getId().equals(currentUser.getId())) {
-            return BaseResponse.builder()
-                    .message("Unauthorized: You cannot update this bank account")
-                    .statusCode(String.valueOf(HttpStatus.UNAUTHORIZED.value()))
-                    .build();
+            log.warn("Unauthorized attempt by user {} to update bank account with ID: {}", currentUser.getEmail(), bankId);
+            throw new UnauthorizedException("Unauthorized: You cannot update this bank account");
         }
 
         // Update the bank entity with the provided request details
@@ -112,21 +111,23 @@ public class BankServiceImpl implements BankService {
     // Delete a bank account
     @Override
     public BaseResponse<?> deleteBank(Long bankId) {
+        // Validate bankId to ensure it's not null and is positive
+        if (bankId == null || bankId <= 0) {
+            throw new FieldBlankExceptionHandler("Bank ID must be a positive number and cannot be null.");
+        }
 
         // Get the currently authenticated user
         UserEntity currentUser = (UserEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        log.info("User authenticated: {}", currentUser.getEmail());
 
+        // Retrieve the bank account by bankId
         Optional<BankEntity> bankEntityOptional = bankRepository.findById(bankId);
         if (bankEntityOptional.isPresent()) {
             BankEntity bankEntity = bankEntityOptional.get();
 
             // Check if the Bank Account belongs to the current user
             if (!bankEntity.getUser().getId().equals(currentUser.getId())) {
-                return BaseResponse.builder()
-                        .message("Unauthorized: You cannot delete this bank account")
-                        .statusCode(String.valueOf(HttpStatus.UNAUTHORIZED.value()))
-                        .build();
+                log.warn("Unauthorized attempt by user {} to delete bank account with ID: {}", currentUser.getEmail(), bankId);
+                throw new UnauthorizedException("Unauthorized: You cannot delete this bank account");
             }
 
             bankRepository.deleteById(bankId);
@@ -136,12 +137,11 @@ public class BankServiceImpl implements BankService {
                     .statusCode(String.valueOf(HttpStatus.OK.value()))
                     .build();
         } else {
-            return BaseResponse.builder()
-                    .message("Bank account not found")
-                    .statusCode(String.valueOf(HttpStatus.NOT_FOUND.value()))
-                    .build();
+            log.error("Bank account with ID {} not found", bankId);
+            throw new NotFoundExceptionHandler("Bank account not found");
         }
     }
+
 
     // Get bank account by current user
     @Override

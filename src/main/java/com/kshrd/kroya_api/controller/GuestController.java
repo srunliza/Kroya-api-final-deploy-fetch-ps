@@ -55,7 +55,15 @@ public class GuestController {
 
     @Operation(
             summary = "🔍 Get Food Detail by ID",
-            description = "Retrieves detailed information about a specific food item using its ID and type."
+            description = """
+                    Retrieves detailed information about a specific food item using its ID and type.
+                    - **Path Variable**: **id**: The ID of the food item.
+                    - **Query Parameter**: **itemType**: The type of food item (e.g., recipe or sell).
+                    
+                    **📩 Response Summary**:
+                    - **200**: ✅ Food detail retrieved successfully.
+                    - **404**: 🚫 Food not found for the provided ID and type.
+                    """
     )
     @GetMapping("/foods/detail/{id}")
     public BaseResponse<?> getFoodDetail(@PathVariable Long id, @RequestParam ItemType itemType) {
@@ -64,7 +72,14 @@ public class GuestController {
 
     @Operation(
             summary = "🔎 Search Foods by Name",
-            description = "Allows users to search for foods by name and retrieves matching results."
+            description = """
+                    Allows users to search for foods by name and retrieves matching results.
+                    - **Query Parameter**: **name**: Part or full name of the food to search.
+                    
+                    **📩 Response Summary**:
+                    - **200**: ✅ Search results retrieved successfully.
+                    - **404**: 🚫 No foods found for the specified name.
+                    """
     )
     @GetMapping("/foods/search")
     public BaseResponse<?> searchFoodsByName(@RequestParam String name) {
@@ -73,7 +88,14 @@ public class GuestController {
 
     @Operation(
             summary = "🍴 Get Food Recipes by Cuisine ID",
-            description = "Fetches food recipes associated with a specific cuisine based on the cuisine ID."
+            description = """
+                    Fetches food recipes associated with a specific cuisine based on the cuisine ID.
+                    - **Path Variable**: **cuisineId**: ID of the cuisine.
+                    
+                    **📩 Response Summary**:
+                    - **200**: ✅ List of food recipes by cuisine ID retrieved successfully.
+                    - **404**: 🚫 No food recipes found for the specified cuisine ID.
+                    """
     )
     @GetMapping("/food-recipe/{cuisineId}")
     public BaseResponse<?> getFoodRecipeByCuisineID(@PathVariable Long cuisineId) {
@@ -82,7 +104,14 @@ public class GuestController {
 
     @Operation(
             summary = "🍽️ Get Food Sells by Cuisine ID",
-            description = "Retrieves food sells linked to a particular cuisine using the cuisine ID."
+            description = """
+                    Retrieves food sells linked to a particular cuisine using the cuisine ID.
+                    - **Path Variable**: **cuisineId**: ID of the cuisine.
+                    
+                    **📩 Response Summary**:
+                    - **200**: ✅ List of food sells by cuisine ID retrieved successfully.
+                    - **404**: 🚫 No food sells found for the specified cuisine ID.
+                    """
     )
     @GetMapping("/food-sell/{cuisineId}")
     public BaseResponse<?> getFoodSellByCuisineID(@PathVariable Long cuisineId) {
@@ -106,5 +135,38 @@ public class GuestController {
     public BaseResponse<?> getAllFoods() {
         return guestUserService.getAllFoods();
     }
+
+    @Operation(
+            summary = "🔍 Search Food Sells by Name",
+            description = """
+                    Searches for food sell entries containing the specified name.
+                    - **Query Parameter**: **name**: Part or full name of the food sell to search.
+                    
+                    **📩 Response Summary**:
+                    - **200**: ✅ Search results fetched successfully.
+                    - **404**: 🚫 No food sells found matching the specified name.
+                    """
+    )
+    @GetMapping("/food-sell/search")
+    public BaseResponse<?> searchFoodsSellByName(@RequestParam String name) {
+        return guestUserService.searchFoodsSellByName(name);
+    }
+
+    @Operation(
+            summary = "🔍 Search Food Recipes by Name",
+            description = """
+                    Searches for food recipe entries containing the specified name.
+                    - **Query Parameter**: **name**: Part or full name of the food recipe to search.
+                    
+                    **📩 Response Summary**:
+                    - **200**: ✅ Search results fetched successfully.
+                    - **404**: 🚫 No food recipes found matching the specified name.
+                    """
+    )
+    @GetMapping("/food-recipe/search")
+    public BaseResponse<?> searchFoodsRecipeByName(@RequestParam String name) {
+        return guestUserService.searchFoodsRecipeByName(name);
+    }
 }
+
 

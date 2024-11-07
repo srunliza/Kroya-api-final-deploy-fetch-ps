@@ -3,6 +3,7 @@ package com.kshrd.kroya_api.controller;
 import com.kshrd.kroya_api.entity.FileEntity;
 import com.kshrd.kroya_api.payload.File.FileResponse;
 import com.kshrd.kroya_api.service.File.FileService;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,17 @@ public class FileController {
         this.fileService = fileService;
     }
 
+    @Operation(
+            summary = "📤 Upload Multiple Files",
+            description = """
+                    Uploads one or more files to the server.
+                    - **Request Parameter**: **files** (List of `MultipartFile`): Files to be uploaded.
+                    
+                    **📩 Response Summary**:
+                    - **201**: ✅ Files uploaded successfully, returns URLs of the uploaded files.
+                    - **400**: 🚫 Invalid file format or missing files.
+                    """
+    )
     @PostMapping(value = "/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadFiles(@RequestParam("files") List<MultipartFile> files) throws IOException {
         List<String> fileUrl = new ArrayList<>();
@@ -42,9 +54,21 @@ public class FileController {
         ));
     }
 
+    @Operation(
+            summary = "📥 Download File by Name",
+            description = """
+                    Retrieves a file from the server based on its name.
+                    - **Path Variable**: **fileName** (String): Name of the file to be downloaded.
+                    
+                    **📩 Response Summary**:
+                    - **200**: ✅ File retrieved successfully.
+                    - **404**: 🚫 File not found.
+                    """
+    )
     @GetMapping("/{fileName}")
     public ResponseEntity<Resource> getFile(@PathVariable String fileName) throws IOException {
         Resource file = fileService.getFile(fileName);
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(file);
     }
 }
+

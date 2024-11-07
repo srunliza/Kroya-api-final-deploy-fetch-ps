@@ -17,6 +17,8 @@ public interface GuestUserService {
 
     BaseResponse<?> searchFoodsByName(String name);
 
+    BaseResponse<?> searchFoodsSellByName(String name);
+
     BaseResponse<?> getFoodRecipeByCuisineID(Long cuisineId);
 
     BaseResponse<?> getFoodSellByCuisineID(Long cuisineId);
@@ -24,4 +26,6 @@ public interface GuestUserService {
     BaseResponse<?> getAllFoodName();
 
     BaseResponse<?> getAllFoods();
+
+    BaseResponse<?> searchFoodsRecipeByName(String name);
 }
