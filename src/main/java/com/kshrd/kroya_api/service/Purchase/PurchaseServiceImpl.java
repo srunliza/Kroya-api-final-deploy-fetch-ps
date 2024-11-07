@@ -16,12 +16,14 @@ import com.kshrd.kroya_api.payload.Purchase.PurchaseRequest;
 import com.kshrd.kroya_api.payload.Purchase.PurchaseResponse;
 import com.kshrd.kroya_api.payload.Receipt.ReceiptResponse;
 import com.kshrd.kroya_api.repository.Address.AddressRepository;
+import com.kshrd.kroya_api.repository.DeviceToken.DeviceTokenRepository;
 import com.kshrd.kroya_api.repository.Favorite.FavoriteRepository;
 import com.kshrd.kroya_api.repository.FoodSell.FoodSellRepository;
 import com.kshrd.kroya_api.repository.Notification.NotificationRepository;
 import com.kshrd.kroya_api.repository.Purchase.PurchaseRepository;
 import com.kshrd.kroya_api.repository.Receipt.RecipeRepository;
 import com.kshrd.kroya_api.repository.User.UserRepository;
+import com.kshrd.kroya_api.service.Notification.PushNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -47,6 +49,8 @@ public class PurchaseServiceImpl implements PurchaseService {
     private final ModelMapper modelMapper;
     private final FavoriteRepository favoriteRepository;
     private final NotificationRepository notificationRepository;
+    private final PushNotificationService pushNotificationService;
+    private final DeviceTokenRepository deviceTokenRepository;
 
     @Override
     public BaseResponse<?> addPurchase(PurchaseRequest purchaseRequest, PaymentType paymentType) {
@@ -154,6 +158,21 @@ public class PurchaseServiceImpl implements PurchaseService {
                 .createdDate(LocalDateTime.now())
                 .build();
         notificationRepository.save(buyerNotification);
+
+
+        // Retrieve FCM device tokens from DeviceTokenRepository
+        String sellerToken = deviceTokenRepository.findByUser(seller).getDeviceToken();
+        String buyerToken = deviceTokenRepository.findByUser(buyer).getDeviceToken();
+
+        // Send FCM notification to seller
+        String sellerTitle = "New Order Received";
+        String sellerMessage = String.format("%s ordered %s. Please prepare the meal.", buyer.getFullName(), product.getFoodRecipe().getName());
+        pushNotificationService.sendNotification(sellerToken, sellerTitle, sellerMessage);
+
+        // Send FCM notification to buyer
+        String buyerTitle = "Order Placed Successfully";
+        String buyerMessage = String.format("Your order for %s has been placed successfully.", product.getFoodRecipe().getName());
+        pushNotificationService.sendNotification(buyerToken, buyerTitle, buyerMessage);
 
         return BaseResponse.builder()
                 .message("Purchase successfully!")
