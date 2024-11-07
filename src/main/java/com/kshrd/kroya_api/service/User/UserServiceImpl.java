@@ -558,12 +558,12 @@ public class UserServiceImpl implements UserService {
 
         UserEntity user = userRepository.getById(userId);
 
-        UserResponse userResponse = modelMapper.map(user, UserResponse.class);
+//        UserResponse userResponse = modelMapper.map(user, UserResponse.class);
 
         return BaseResponse.builder()
                 .message("User info fetched successfully")
                 .statusCode(String.valueOf(HttpStatus.OK.value()))
-                .payload(userResponse)
+                .payload(auth)
                 .build();
     }
 }
