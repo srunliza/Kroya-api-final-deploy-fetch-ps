@@ -835,6 +835,102 @@ public class GuestUserServiceImpl implements GuestUserService {
                 .build();
     }
 
+    @Override
+    public BaseResponse<?> searchFoodsRecipeByName(String name) {
+        log.info("Searching food recipes by name: {}", name);
+
+        // Fetch all food recipes that match the name
+        List<FoodRecipeEntity> foodRecipes = foodRecipeRepository.findByNameContainingIgnoreCase(name);
+
+        // Check if no records were found for the provided name
+        if (foodRecipes.isEmpty()) {
+            throw new NotFoundExceptionHandler("No food recipes found for the specified name.");
+        }
+
+        // Filter out food recipes that are linked to food sells
+        List<FoodRecipeEntity> pureFoodRecipes = foodRecipes.stream()
+                .filter(recipe -> foodSellRepository.findByFoodRecipe(recipe).isEmpty())
+                .toList();
+
+        // Map pure food recipes to FoodRecipeCardResponse
+        List<FoodRecipeCardResponse> recipeResponses = pureFoodRecipes.stream()
+                .map(recipe -> {
+                    FoodRecipeCardResponse response = modelMapper.map(recipe, FoodRecipeCardResponse.class);
+
+                    // Map photos
+                    List<PhotoDTO> photoDTOs = recipe.getPhotos().stream()
+                            .map(photo -> new PhotoDTO(photo.getId(), photo.getPhoto()))
+                            .collect(Collectors.toList());
+                    response.setPhoto(photoDTOs);
+
+                    return response;
+                })
+                .collect(Collectors.toList());
+
+        // Prepare the response
+        Map<String, List<?>> responseMap = new HashMap<>();
+        responseMap.put("foodRecipes", recipeResponses);
+
+        return BaseResponse.builder()
+                .message("Food recipe search results fetched successfully")
+                .statusCode(String.valueOf(HttpStatus.OK.value()))
+                .payload(responseMap)
+                .build();
+    }
+
+    @Override
+    public BaseResponse<?> searchFoodsSellByName(String name) {
+        log.info("Searching food sells by name: {}", name);
+
+        // Fetch all food sells that match the name
+        List<FoodSellEntity> foodSells = foodSellRepository.findByFoodRecipeNameContainingIgnoreCase(name);
+
+        // Check if no records were found for the provided name
+        if (foodSells.isEmpty()) {
+            throw new NotFoundExceptionHandler("No food sells found for the specified name.");
+        }
+
+        // Map food sells to FoodSellCardResponse
+        List<FoodSellCardResponse> sellResponses = foodSells.stream()
+                .map(sell -> {
+                    FoodSellCardResponse response = modelMapper.map(sell, FoodSellCardResponse.class);
+
+                    // Set the foodSellId
+                    response.setFoodSellId(sell.getId());
+                    // Set name from linked FoodRecipeEntity
+                    response.setName(sell.getFoodRecipe().getName());
+
+                    // Map photos from FoodRecipeEntity
+                    List<PhotoDTO> photoDTOs = sell.getFoodRecipe().getPhotos().stream()
+                            .map(photo -> new PhotoDTO(photo.getId(), photo.getPhoto()))
+                            .collect(Collectors.toList());
+                    response.setPhoto(photoDTOs);
+
+                    // Set seller information
+                    UserProfileDTO sellerInfo = UserProfileDTO.builder()
+                            .userId(Long.valueOf(sell.getFoodRecipe().getUser().getId()))
+                            .fullName(sell.getFoodRecipe().getUser().getFullName())
+                            .phoneNumber(sell.getFoodRecipe().getUser().getPhoneNumber())
+                            .profileImage(sell.getFoodRecipe().getUser().getProfileImage())
+                            .location(sell.getFoodRecipe().getUser().getLocation())
+                            .build();
+                    response.setSellerInformation(sellerInfo);
+
+                    return response;
+                })
+                .collect(Collectors.toList());
+
+        // Prepare the response
+        Map<String, List<?>> responseMap = new HashMap<>();
+        responseMap.put("foodSells", sellResponses);
+
+        return BaseResponse.builder()
+                .message("Food sell search results fetched successfully")
+                .statusCode(String.valueOf(HttpStatus.OK.value()))
+                .payload(responseMap)
+                .build();
+    }
+
 
     /**
      * Helper method to calculate the rating percentages for each star level (1 to 5).

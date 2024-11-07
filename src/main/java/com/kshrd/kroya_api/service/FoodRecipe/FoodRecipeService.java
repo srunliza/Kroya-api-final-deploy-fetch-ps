@@ -11,4 +11,6 @@ public interface FoodRecipeService {
     BaseResponse<?> editRecipe(Long recipeId, FoodRecipeRequest foodRecipeRequest);
 
     BaseResponse<?> getFoodRecipeByCuisineID(Long cuisineId);
+
+    BaseResponse<?> searchFoodsByName(String name);
 }

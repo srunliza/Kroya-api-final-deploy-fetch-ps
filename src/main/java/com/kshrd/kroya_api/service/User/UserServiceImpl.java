@@ -6,6 +6,7 @@ import com.kshrd.kroya_api.dto.UserProfileDTO;
 import com.kshrd.kroya_api.entity.*;
 import com.kshrd.kroya_api.entity.token.TokenRepository;
 import com.kshrd.kroya_api.exception.NotFoundExceptionHandler;
+import com.kshrd.kroya_api.exception.constand.FieldBlankExceptionHandler;
 import com.kshrd.kroya_api.exception.exceptionValidateInput.Validation;
 import com.kshrd.kroya_api.payload.Auth.UserProfileUpdateRequest;
 import com.kshrd.kroya_api.payload.BaseResponse;
@@ -19,6 +20,7 @@ import com.kshrd.kroya_api.repository.Favorite.FavoriteRepository;
 import com.kshrd.kroya_api.repository.FoodRecipe.FoodRecipeRepository;
 import com.kshrd.kroya_api.repository.FoodSell.FoodSellRepository;
 import com.kshrd.kroya_api.repository.User.UserRepository;
+import jakarta.validation.ValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -280,6 +282,7 @@ public class UserServiceImpl implements UserService {
 
                         // Convert LocalDateTime to ZonedDateTime in Phnom Penh time zone
                         ZonedDateTime dateCookingZoned = dateCooking.atZone(ZoneId.of("Asia/Phnom_Penh"));
+                        log.info("dateCookingZoned: {}", dateCookingZoned);
 
                         // Update isOrderable based on whether dateCooking is expired or not
                         if (dateCookingZoned.isBefore(currentDateTimeInPhnomPenh)) {
@@ -341,6 +344,14 @@ public class UserServiceImpl implements UserService {
             validation.validateNotBlank(profileUpdateRequest.getProfileImage(), "Profile Image");
             currentUser.setProfileImage(profileUpdateRequest.getProfileImage());
         }
+
+        // Ensure password has more than 8 characters
+        if (profileUpdateRequest.getPassword().length() < 8) {
+            throw new FieldBlankExceptionHandler("Password must be more than 8 characters.");
+        }
+        // Update the user's password
+        currentUser.setPassword(passwordEncoder.encode(profileUpdateRequest.getPassword()));
+
 
         // Validate and update full name
         if (profileUpdateRequest.getFullName() != null) {

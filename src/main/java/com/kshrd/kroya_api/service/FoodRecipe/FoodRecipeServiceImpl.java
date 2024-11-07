@@ -1,9 +1,12 @@
 package com.kshrd.kroya_api.service.FoodRecipe;
 
+import com.kshrd.kroya_api.dto.UserProfileDTO;
 import com.kshrd.kroya_api.entity.*;
+import com.kshrd.kroya_api.exception.NotFoundExceptionHandler;
 import com.kshrd.kroya_api.payload.BaseResponse;
 import com.kshrd.kroya_api.payload.FoodRecipe.*;
 import com.kshrd.kroya_api.dto.PhotoDTO;
+import com.kshrd.kroya_api.payload.FoodSell.FoodSellCardResponse;
 import com.kshrd.kroya_api.repository.Category.CategoryRepository;
 import com.kshrd.kroya_api.repository.Cuisine.CuisineRepository;
 import com.kshrd.kroya_api.repository.Favorite.FavoriteRepository;
@@ -17,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -370,6 +374,51 @@ public class FoodRecipeServiceImpl implements FoodRecipeService {
                 .message("Food recipes by cuisine ID fetched successfully")
                 .statusCode(String.valueOf(HttpStatus.OK.value()))
                 .payload(foodRecipeResponses)
+                .build();
+    }
+
+    @Override
+    public BaseResponse<?> searchFoodsByName(String name) {
+        // Get the currently authenticated user
+        UserEntity currentUser = (UserEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // Fetch all food recipes that match the name
+        List<FoodRecipeEntity> foodRecipes = foodRecipeRepository.findByNameContainingIgnoreCase(name);
+
+        // Check if no records were found for the provided name
+        if (foodRecipes.isEmpty()) {
+            throw new NotFoundExceptionHandler("No foods found for the specified name.");
+        }
+
+        // Retrieve user's favorite recipe IDs
+        List<Long> userFavoriteRecipeIds = favoriteRepository.findByUserAndFoodRecipeIsNotNull(currentUser)
+                .stream()
+                .map(favorite -> favorite.getFoodRecipe().getId())
+                .toList();
+
+        // Map food recipes to FoodRecipeCardResponse
+        List<FoodRecipeCardResponse> recipeResponses = foodRecipes.stream()
+                .map(recipe -> {
+                    FoodRecipeCardResponse response = modelMapper.map(recipe, FoodRecipeCardResponse.class);
+
+                    // Set favorite status based on user's favorites
+                    response.setIsFavorite(userFavoriteRecipeIds.contains(recipe.getId()));
+
+                    // Map photos
+                    List<PhotoDTO> photoDTOs = recipe.getPhotos().stream()
+                            .map(photo -> new PhotoDTO(photo.getId(), photo.getPhoto()))
+                            .collect(Collectors.toList());
+                    response.setPhoto(photoDTOs);
+
+                    return response;
+                })
+                .collect(Collectors.toList());
+
+        // Build and return the BaseResponse
+        return BaseResponse.builder()
+                .message("Search results fetched successfully")
+                .statusCode(String.valueOf(HttpStatus.OK.value()))
+                .payload(recipeResponses)
                 .build();
     }
 

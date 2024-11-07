@@ -2,6 +2,7 @@ package com.kshrd.kroya_api.service.FoodSell;
 
 import com.kshrd.kroya_api.dto.FoodRecipeDTO;
 import com.kshrd.kroya_api.dto.PhotoDTO;
+import com.kshrd.kroya_api.dto.UserProfileDTO;
 import com.kshrd.kroya_api.entity.*;
 import com.kshrd.kroya_api.enums.CurrencyType;
 import com.kshrd.kroya_api.exception.DuplicateFieldExceptionHandler;
@@ -9,6 +10,7 @@ import com.kshrd.kroya_api.exception.NotFoundExceptionHandler;
 import com.kshrd.kroya_api.exception.constand.FieldBlankExceptionHandler;
 import com.kshrd.kroya_api.exception.exceptionValidateInput.Validation;
 import com.kshrd.kroya_api.payload.BaseResponse;
+import com.kshrd.kroya_api.payload.FoodRecipe.FoodRecipeCardResponse;
 import com.kshrd.kroya_api.payload.FoodSell.FoodSellCardResponse;
 import com.kshrd.kroya_api.payload.FoodSell.FoodSellRequest;
 import com.kshrd.kroya_api.payload.FoodSell.FoodSellResponse;
@@ -29,7 +31,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -150,59 +154,46 @@ public class FoodSellServiceImpl implements FoodSellService {
         // Get the current time in Phnom Penh time zone (UTC+7)
         ZonedDateTime currentDateTimeInPhnomPenh = ZonedDateTime.now(ZoneId.of("Asia/Phnom_Penh"));
 
-        // Define a flexible DateTimeFormatter to handle variable fractional seconds
-        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
-                .appendPattern("yyyy-MM-dd HH:mm:ss")  // Base pattern
-                .optionalStart()                       // Optional fractional seconds
-                .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
-                .optionalEnd()
-                .toFormatter();
-
-        // Map each FoodSellEntity to FoodSellCardResponse using ModelMapper
+        // Map each FoodSellEntity to FoodSellCardResponse
         List<FoodSellCardResponse> foodSellCardResponses = foodSellEntities.stream()
                 .map(foodSellEntity -> {
-                    try {
-                        // Parse the dateCooking using the flexible DateTimeFormatter
-                        LocalDateTime dateCooking = LocalDateTime.parse(
-                                foodSellEntity.getDateCooking().toString(), formatter);
+                    // Check if dateCooking is in the future to set isOrderable
+                    ZonedDateTime dateCookingZoned = foodSellEntity.getDateCooking().atZone(ZoneId.of("Asia/Phnom_Penh"));
+                    log.info("DateCookingZoned: {}", dateCookingZoned);
 
-                        // Convert LocalDateTime to ZonedDateTime in Phnom Penh time zone
-                        ZonedDateTime dateCookingZoned = dateCooking.atZone(ZoneId.of("Asia/Phnom_Penh"));
+                    boolean isOrderable = !dateCookingZoned.isBefore(currentDateTimeInPhnomPenh);
+                    foodSellEntity.setIsOrderable(isOrderable);
+                    foodSellRepository.save(foodSellEntity);  // Update the entity
 
-                        // Update isOrderable based on whether dateCooking is expired or not
-                        if (dateCookingZoned.isBefore(currentDateTimeInPhnomPenh)) {
-                            // Set isOrderable to false if the dateCooking is in the past
-                            foodSellEntity.setIsOrderable(false);
-                        } else {
-                            // Set isOrderable to true if the dateCooking is in the future or present
-                            foodSellEntity.setIsOrderable(true);
-                        }
-
-                        // Save the updated isOrderable value to the database
-                        foodSellRepository.save(foodSellEntity);
-
-                    } catch (DateTimeParseException e) {
-                        log.error("Failed to parse dateCooking: {}", foodSellEntity.getDateCooking(), e);
-                    }
-
-                    // Map using ModelMapper
+                    // Map to FoodSellCardResponse
                     FoodSellCardResponse response = modelMapper.map(foodSellEntity, FoodSellCardResponse.class);
 
-                    // Set isOrderable explicitly to ensure it's transferred correctly
-                    response.setIsOrderable(foodSellEntity.getIsOrderable());
+                    // Set specific fields in response
+                    response.setFoodSellId(foodSellEntity.getId());
+                    response.setIsOrderable(isOrderable);
 
-                    // Set additional fields from the related FoodRecipeEntity
+                    // Map additional fields from FoodRecipeEntity
                     FoodRecipeEntity linkedRecipe = foodSellEntity.getFoodRecipe();
+                    response.setName(linkedRecipe.getName());
+                    response.setAverageRating(linkedRecipe.getAverageRating());
+                    response.setTotalRaters(linkedRecipe.getTotalRaters());
 
-                    // Map photos from FoodRecipeEntity to structured list
+                    // Map photos
                     List<PhotoDTO> photoDTOs = linkedRecipe.getPhotos().stream()
                             .map(photo -> new PhotoDTO(photo.getId(), photo.getPhoto()))
                             .collect(Collectors.toList());
                     response.setPhoto(photoDTOs);
 
-                    response.setName(linkedRecipe.getName());
-                    response.setAverageRating(linkedRecipe.getAverageRating());
-                    response.setTotalRaters(linkedRecipe.getTotalRaters());
+                    // Map seller information
+                    UserEntity seller = linkedRecipe.getUser();
+                    UserProfileDTO sellerInfo = UserProfileDTO.builder()
+                            .userId(Long.valueOf(seller.getId()))
+                            .fullName(seller.getFullName())
+                            .phoneNumber(seller.getPhoneNumber())
+                            .profileImage(seller.getProfileImage())
+                            .location(seller.getLocation())
+                            .build();
+                    response.setSellerInformation(sellerInfo);
 
                     // Set isFavorite based on user preferences
                     response.setIsFavorite(userFavoriteSellIds.contains(foodSellEntity.getId()));
@@ -388,6 +379,71 @@ public class FoodSellServiceImpl implements FoodSellService {
                 .payload(foodSellCardResponses)
                 .build();
     }
+
+    @Override
+    public BaseResponse<?> searchFoodsByName(String name) {
+        // Get the currently authenticated user
+        UserEntity currentUser = (UserEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // Fetch all food sells that match the name
+        List<FoodSellEntity> foodSells = foodSellRepository.findByFoodRecipeNameContainingIgnoreCase(name);
+
+        // Check if no records were found for the provided name
+        if (foodSells.isEmpty()) {
+            throw new NotFoundExceptionHandler("No foods found for the specified name.");
+        }
+
+        // Retrieve user's favorite recipe and food sell IDs
+
+        List<Long> userFavoriteFoodSellIds = favoriteRepository.findByUserAndFoodSellIsNotNull(currentUser)
+                .stream()
+                .map(favorite -> favorite.getFoodSell().getId())
+                .toList();
+
+
+        // Map food sells to FoodSellCardResponse
+        List<FoodSellCardResponse> sellResponses = foodSells.stream()
+                .map(sell -> {
+                    FoodSellCardResponse response = modelMapper.map(sell, FoodSellCardResponse.class);
+
+                    // Set foodSellId directly from FoodSellEntity ID
+                    response.setFoodSellId(sell.getId());
+
+                    // Set name from related FoodRecipeEntity
+                    response.setName(sell.getFoodRecipe().getName());
+
+                    // Set favorite status
+                    response.setIsFavorite(userFavoriteFoodSellIds.contains(sell.getId()));
+
+                    // Map photos from FoodRecipeEntity
+                    List<PhotoDTO> photoDTOs = sell.getFoodRecipe().getPhotos().stream()
+                            .map(photo -> new PhotoDTO(photo.getId(), photo.getPhoto()))
+                            .collect(Collectors.toList());
+                    response.setPhoto(photoDTOs);
+
+                    // Map seller information from FoodRecipeEntity user
+                    UserEntity seller = sell.getFoodRecipe().getUser();
+                    UserProfileDTO sellerInfo = UserProfileDTO.builder()
+                            .userId(Long.valueOf(seller.getId()))
+                            .fullName(seller.getFullName())
+                            .phoneNumber(seller.getPhoneNumber())
+                            .profileImage(seller.getProfileImage())
+                            .location(seller.getLocation())
+                            .build();
+                    response.setSellerInformation(sellerInfo);
+
+                    return response;
+                })
+                .toList();
+
+        // Build and return the BaseResponse
+        return BaseResponse.builder()
+                .message("Search results fetched successfully")
+                .statusCode(String.valueOf(HttpStatus.OK.value()))
+                .payload(sellResponses)
+                .build();
+    }
+
 
 
 }
