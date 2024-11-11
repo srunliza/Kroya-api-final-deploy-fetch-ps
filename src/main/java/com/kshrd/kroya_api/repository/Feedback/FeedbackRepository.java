@@ -28,4 +28,8 @@ public interface FeedbackRepository extends JpaRepository<FeedbackEntity, Long> 
     List<FeedbackEntity> findByFoodRecipeId(Long foodId);
 
     List<FeedbackEntity> findByFoodSellId(Long foodId);
+
+    List<FeedbackEntity> findByFoodRecipe(FoodRecipeEntity recipe);
+
+    List<FeedbackEntity> findByFoodSell(FoodSellEntity sell);
 }

@@ -42,6 +42,7 @@ public class SecurityConfiguration {
                                 "api/v1/category/**",
                                 "/api/v1/cuisine/**",
                                 "/api/v1/guest-user/**",
+                                "/api/v1/guest-user/feedback/{foodId}",
                                 "/v2/api-docs",
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",

@@ -1,6 +1,7 @@
 package com.kshrd.kroya_api.service.Favorite;
 
 import com.kshrd.kroya_api.dto.PhotoDTO;
+import com.kshrd.kroya_api.dto.UserProfileDTO;
 import com.kshrd.kroya_api.entity.*;
 import com.kshrd.kroya_api.enums.ItemType;
 import com.kshrd.kroya_api.payload.BaseResponse;
@@ -207,7 +208,6 @@ public class FavoriteServiceImpl implements FavoriteService {
 
     @Override
     public BaseResponse<?> getAllFavoriteFoodsByCurrentUser() {
-
         // Get the currently authenticated user
         UserEntity currentUser = (UserEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         log.info("Fetching favorite foods for user: {}", currentUser.getEmail());
@@ -220,10 +220,10 @@ public class FavoriteServiceImpl implements FavoriteService {
 
         // Map favorite entities to FoodRecipeCardResponse (pure food recipes)
         List<FoodRecipeCardResponse> favoriteFoodRecipes = favoriteEntities.stream()
-                .filter(favorite -> favorite.getFoodRecipe() != null && favorite.getFoodSell() == null) // Only pure recipes
+                .filter(favorite -> favorite.getFoodRecipe() != null && favorite.getFoodSell() == null)
                 .map(favorite -> {
                     FoodRecipeCardResponse response = modelMapper.map(favorite.getFoodRecipe(), FoodRecipeCardResponse.class);
-                    response.setIsFavorite(true);  // Mark it as favorite
+                    response.setIsFavorite(true); // Mark it as favorite
 
                     // Map photos from FoodRecipeEntity to structured list
                     List<PhotoDTO> photoDTOs = favorite.getFoodRecipe().getPhotos().stream()
@@ -237,9 +237,12 @@ public class FavoriteServiceImpl implements FavoriteService {
 
         // Map favorite entities to FoodSellCardResponse (food sells)
         List<FoodSellCardResponse> favoriteFoodSells = favoriteEntities.stream()
-                .filter(favorite -> favorite.getFoodSell() != null) // Only sells
+                .filter(favorite -> favorite.getFoodSell() != null)
                 .map(favorite -> {
                     FoodSellCardResponse response = modelMapper.map(favorite.getFoodSell(), FoodSellCardResponse.class);
+
+                    // Set foodSellId
+                    response.setFoodSellId(favorite.getFoodSell().getId());
 
                     // Set additional fields from the related FoodRecipeEntity
                     FoodRecipeEntity linkedRecipe = favorite.getFoodSell().getFoodRecipe();
@@ -255,10 +258,10 @@ public class FavoriteServiceImpl implements FavoriteService {
                     response.setTotalRaters(linkedRecipe.getTotalRaters());
                     response.setIsFavorite(true);
 
-                    // Parse the dateCooking to LocalDateTime
+                    // Parse the dateCooking to LocalDateTime using the correct formatter
                     LocalDateTime dateCooking = LocalDateTime.parse(
                             favorite.getFoodSell().getDateCooking().toString(),
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS")
                     );
 
                     // Convert LocalDateTime to ZonedDateTime in Phnom Penh time zone
@@ -266,10 +269,8 @@ public class FavoriteServiceImpl implements FavoriteService {
 
                     // Update isOrderable based on whether dateCooking is expired or not
                     if (dateCookingZoned.isBefore(currentDateTimeInPhnomPenh)) {
-                        // Set isOrderable to false if the dateCooking is in the past
                         favorite.getFoodSell().setIsOrderable(false);
                     } else {
-                        // Set isOrderable to true if the dateCooking is in the future or present
                         favorite.getFoodSell().setIsOrderable(true);
                     }
 
@@ -278,6 +279,17 @@ public class FavoriteServiceImpl implements FavoriteService {
 
                     // Set isOrderable explicitly in the response
                     response.setIsOrderable(favorite.getFoodSell().getIsOrderable());
+
+                    // Set seller information from the linked FoodRecipeEntity user
+                    UserEntity seller = linkedRecipe.getUser();
+                    UserProfileDTO sellerInfo = UserProfileDTO.builder()
+                            .userId(Long.valueOf(seller.getId()))
+                            .fullName(seller.getFullName())
+                            .phoneNumber(seller.getPhoneNumber())
+                            .profileImage(seller.getProfileImage())
+                            .location(seller.getLocation())
+                            .build();
+                    response.setSellerInformation(sellerInfo);
 
                     return response;
                 })

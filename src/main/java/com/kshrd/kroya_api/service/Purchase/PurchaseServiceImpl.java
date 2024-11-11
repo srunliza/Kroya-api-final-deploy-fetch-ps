@@ -160,19 +160,19 @@ public class PurchaseServiceImpl implements PurchaseService {
         notificationRepository.save(buyerNotification);
 
 
-        // Retrieve FCM device tokens from DeviceTokenRepository
-        String sellerToken = deviceTokenRepository.findByUser(seller).getDeviceToken();
-        String buyerToken = deviceTokenRepository.findByUser(buyer).getDeviceToken();
-
-        // Send FCM notification to seller
-        String sellerTitle = "New Order Received";
-        String sellerMessage = String.format("%s ordered %s. Please prepare the meal.", buyer.getFullName(), product.getFoodRecipe().getName());
-        pushNotificationService.sendNotification(sellerToken, sellerTitle, sellerMessage);
-
-        // Send FCM notification to buyer
-        String buyerTitle = "Order Placed Successfully";
-        String buyerMessage = String.format("Your order for %s has been placed successfully.", product.getFoodRecipe().getName());
-        pushNotificationService.sendNotification(buyerToken, buyerTitle, buyerMessage);
+//        // Retrieve FCM device tokens from DeviceTokenRepository
+//        String sellerToken = deviceTokenRepository.findByUser(seller).getDeviceToken();
+//        String buyerToken = deviceTokenRepository.findByUser(buyer).getDeviceToken();
+//
+//        // Send FCM notification to seller
+//        String sellerTitle = "New Order Received";
+//        String sellerMessage = String.format("%s ordered %s. Please prepare the meal.", buyer.getFullName(), product.getFoodRecipe().getName());
+//        pushNotificationService.sendNotification(sellerToken, sellerTitle, sellerMessage);
+//
+//        // Send FCM notification to buyer
+//        String buyerTitle = "Order Placed Successfully";
+//        String buyerMessage = String.format("Your order for %s has been placed successfully.", product.getFoodRecipe().getName());
+//        pushNotificationService.sendNotification(buyerToken, buyerTitle, buyerMessage);
 
         return BaseResponse.builder()
                 .message("Purchase successfully!")
@@ -353,6 +353,19 @@ public class PurchaseServiceImpl implements PurchaseService {
                 .createdDate(LocalDateTime.now())
                 .build();
         notificationRepository.save(buyerNotification);
+
+//        // Retrieve FCM device tokens from DeviceTokenRepository
+//        String buyerToken = deviceTokenRepository.findByUser(buyer).getDeviceToken();
+//
+//        // Send FCM notification to seller
+//        String sellerTitle = "New Order Received";
+//        String sellerMessage = String.format("%s ordered %s. Please prepare the meal.", buyer.getFullName(), product.getFoodRecipe().getName());
+//        pushNotificationService.sendNotification(sellerToken, sellerTitle, sellerMessage);
+//
+//        // Send FCM notification to buyer
+//        String buyerTitle = "Order Placed Successfully";
+//        String buyerMessage = String.format("Your order for %s has been placed successfully.", product.getFoodRecipe().getName());
+//        pushNotificationService.sendNotification(buyerToken, buyerTitle, buyerMessage);
 
         return BaseResponse.builder()
                 .message("Order status updated successfully")
