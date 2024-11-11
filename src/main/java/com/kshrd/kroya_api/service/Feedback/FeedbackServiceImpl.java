@@ -17,16 +17,20 @@ import com.kshrd.kroya_api.repository.Feedback.FeedbackRepository;
 import com.kshrd.kroya_api.repository.FoodRecipe.FoodRecipeRepository;
 import com.kshrd.kroya_api.repository.FoodSell.FoodSellRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FeedbackServiceImpl implements FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
@@ -239,6 +243,102 @@ public class FeedbackServiceImpl implements FeedbackService {
                 .payload("Feedback with ID " + feedbackId + " has been deleted")
                 .build();
     }
+
+    @Override
+    public BaseResponse<?> getAllFeedbacksByFoodId(Long foodId, ItemType itemType) {
+        log.info("Fetching all feedbacks for foodId: {} and itemType: {}", foodId, itemType);
+
+        List<FeedbackEntity> feedbackEntities;
+
+        if (itemType == ItemType.FOOD_RECIPE) {
+            // Fetch all feedbacks for a specific FoodRecipe by ID
+            FoodRecipeEntity recipe = foodRecipeRepository.findById(Math.toIntExact(foodId))
+                    .orElseThrow(() -> new NotFoundExceptionHandler("Recipe not found with ID: " + foodId));
+
+            feedbackEntities = feedbackRepository.findByFoodRecipe(recipe);
+
+        } else if (itemType == ItemType.FOOD_SELL) {
+            // Fetch all feedbacks for a specific FoodSell by ID
+            FoodSellEntity sell = foodSellRepository.findById(foodId)
+                    .orElseThrow(() -> new NotFoundExceptionHandler("Food Sell not found with ID: " + foodId));
+
+            feedbackEntities = feedbackRepository.findByFoodSell(sell);
+
+        } else {
+            throw new InvalidValueExceptionHandler("Invalid item type");
+        }
+
+        // Check if there are no feedbacks for the provided foodId and itemType
+        if (feedbackEntities.isEmpty()) {
+            throw new NotFoundExceptionHandler("No feedbacks found for the specified food item.");
+        }
+
+        // Map feedback entities to FeedbackResponse
+        List<FeedbackResponse> feedbackResponses = feedbackEntities.stream()
+                .map(feedback -> {
+                    FeedbackResponse response = modelMapper.map(feedback, FeedbackResponse.class);
+                    response.setFeedbackId(feedback.getId());
+                    UserDTO userDTO = modelMapper.map(feedback.getUser(), UserDTO.class);
+                    response.setUser(userDTO);
+                    return response;
+                })
+                .collect(Collectors.toList());
+
+        return BaseResponse.builder()
+                .statusCode(String.valueOf(HttpStatus.OK.value()))
+                .payload(feedbackResponses)
+                .message("Feedbacks fetched successfully")
+                .build();
+    }
+
+    @Override
+    public BaseResponse<FeedbackResponse> getFeedback(Long foodId, ItemType itemType) {
+        // Get the currently authenticated user
+        UserEntity currentUser = (UserEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        log.info("Fetching feedback for user: {} on item ID: {} of type: {}", currentUser.getEmail(), foodId, itemType);
+
+        // Determine feedback based on item type
+        Optional<FeedbackEntity> feedbackEntityOptional;
+        if (itemType == ItemType.FOOD_RECIPE) {
+            // Fetch FoodRecipe by ID
+            FoodRecipeEntity recipe = foodRecipeRepository.findById(foodId.intValue())
+                    .orElseThrow(() -> new NotFoundExceptionHandler("Recipe not found with ID: " + foodId));
+
+            // Get feedback for the specified FoodRecipe and user
+            feedbackEntityOptional = feedbackRepository.findByUserAndFoodRecipe(currentUser, recipe);
+
+        } else if (itemType == ItemType.FOOD_SELL) {
+            // Fetch FoodSell by ID
+            FoodSellEntity sell = foodSellRepository.findById(foodId)
+                    .orElseThrow(() -> new NotFoundExceptionHandler("Food Sell not found with ID: " + foodId));
+
+            // Get feedback for the specified FoodSell and user
+            feedbackEntityOptional = feedbackRepository.findByUserAndFoodSell(currentUser, sell);
+
+        } else {
+            throw new InvalidValueExceptionHandler("Invalid item type");
+        }
+
+        // If feedback is not present, throw an exception
+        FeedbackEntity feedbackEntity = feedbackEntityOptional
+                .orElseThrow(() -> new NotFoundExceptionHandler("No feedback found for the specified food item by the current user."));
+
+        // Map feedback entity to FeedbackResponse
+        FeedbackResponse feedbackResponse = modelMapper.map(feedbackEntity, FeedbackResponse.class);
+        feedbackResponse.setFeedbackId(feedbackEntity.getId());
+
+        // Map user details
+        feedbackResponse.setUser(modelMapper.map(currentUser, UserDTO.class));
+
+        // Return response
+        return BaseResponse.<FeedbackResponse>builder()
+                .statusCode(String.valueOf(HttpStatus.OK.value()))
+                .payload(feedbackResponse)
+                .message("Feedback fetched successfully")
+                .build();
+    }
+
+
 
     /**
      * Updates the recipe's average rating and total raters when an existing rating is updated.
