@@ -311,33 +311,21 @@ public class FoodSellServiceImpl implements FoodSellService {
         // Get the current time in Phnom Penh time zone (UTC+7)
         ZonedDateTime currentDateTimeInPhnomPenh = ZonedDateTime.now(ZoneId.of("Asia/Phnom_Penh"));
 
-        // Define a flexible DateTimeFormatter to handle variable fractional seconds
-        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
-                .appendPattern("yyyy-MM-dd HH:mm:ss")  // Base pattern
-                .optionalStart()                       // Optional fractional seconds
-                .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
-                .optionalEnd()
-                .toFormatter();
+        // Define the corrected DateTimeFormatter
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
-        // Map each FoodSellEntity to FoodSellCardResponse using ModelMapper
+        // Map each FoodSellEntity to FoodSellCardResponse
         List<FoodSellCardResponse> foodSellCardResponses = foodSellEntities.stream()
                 .map(foodSellEntity -> {
                     try {
-                        // Parse the dateCooking using the flexible DateTimeFormatter
-                        LocalDateTime dateCooking = LocalDateTime.parse(
-                                foodSellEntity.getDateCooking().toString(), formatter);
+                        // Parse the dateCooking using ISO format
+                        LocalDateTime dateCooking = LocalDateTime.parse(foodSellEntity.getDateCooking().toString(), formatter);
 
                         // Convert LocalDateTime to ZonedDateTime in Phnom Penh time zone
                         ZonedDateTime dateCookingZoned = dateCooking.atZone(ZoneId.of("Asia/Phnom_Penh"));
 
                         // Update isOrderable based on whether dateCooking is expired or not
-                        if (dateCookingZoned.isBefore(currentDateTimeInPhnomPenh)) {
-                            // Set isOrderable to false if the dateCooking is in the past
-                            foodSellEntity.setIsOrderable(false);
-                        } else {
-                            // Set isOrderable to true if the dateCooking is in the future or present
-                            foodSellEntity.setIsOrderable(true);
-                        }
+                        foodSellEntity.setIsOrderable(!dateCookingZoned.isBefore(currentDateTimeInPhnomPenh));
 
                         // Save the updated isOrderable value to the database
                         foodSellRepository.save(foodSellEntity);
@@ -349,8 +337,9 @@ public class FoodSellServiceImpl implements FoodSellService {
                     // Map using ModelMapper
                     FoodSellCardResponse response = modelMapper.map(foodSellEntity, FoodSellCardResponse.class);
 
-                    // Set isOrderable explicitly to ensure it's transferred correctly
+                    // Set isOrderable and foodSellId explicitly
                     response.setIsOrderable(foodSellEntity.getIsOrderable());
+                    response.setFoodSellId(foodSellEntity.getId());
 
                     // Set additional fields from the related FoodRecipeEntity
                     FoodRecipeEntity linkedRecipe = foodSellEntity.getFoodRecipe();
@@ -367,6 +356,17 @@ public class FoodSellServiceImpl implements FoodSellService {
 
                     // Set isFavorite based on user preferences
                     response.setIsFavorite(userFavoriteSellIds.contains(foodSellEntity.getId()));
+
+                    // Map seller information from the linked FoodRecipeEntity's user
+                    UserEntity seller = linkedRecipe.getUser();
+                    UserProfileDTO sellerInfo = UserProfileDTO.builder()
+                            .userId(Long.valueOf(seller.getId()))
+                            .fullName(seller.getFullName())
+                            .phoneNumber(seller.getPhoneNumber())
+                            .profileImage(seller.getProfileImage())
+                            .location(seller.getLocation())
+                            .build();
+                    response.setSellerInformation(sellerInfo);
 
                     return response;
                 })

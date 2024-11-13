@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 public class UserProfileUpdateRequest {
     private String profileImage;
     private String fullName;
-    private String password;
+//    private String password;
     private String phoneNumber;
     private String location;
 }

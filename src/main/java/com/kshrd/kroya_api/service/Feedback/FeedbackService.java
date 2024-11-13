@@ -13,4 +13,8 @@ public interface FeedbackService {
     BaseResponse<FeedbackResponse> updateFeedback(Long feedbackId, @Valid FeedbackRequest feedbackRequest);
 
     BaseResponse<String> deleteFeedback(Long feedbackId);
+
+    BaseResponse<?> getAllFeedbacksByFoodId(Long foodId, ItemType itemType);
+
+    BaseResponse<FeedbackResponse> getFeedback(Long foodId, ItemType itemType);
 }
